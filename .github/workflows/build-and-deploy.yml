@@ -3,13 +3,12 @@ on:
   push:
     branches: [main]
 
-
 jobs:
   terraform:
     name: Provision Infrastructure
     runs-on: ubuntu-latest
     outputs:
-      container_app_url: ' + _GOpen + ' steps.tf-output.outputs.url ' + _GClose + '
+      container_app_url: ${{ steps.tf-output.outputs.url }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -23,56 +22,32 @@ jobs:
         working-directory: terraform
         run: |
           terraform init \
-            -backend-config="storage_account_name=' + _GOpen + ' secrets.TF_STATE_STORAGE_ACCOUNT ' + _GClose + '" \
-            -backend-config="container_name=' + _GOpen + ' secrets.TF_STATE_CONTAINER ' + _GClose + '" \
-            -backend-config="key=' + _GOpen + ' secrets.CODEX_PROJECT_ID ' + _GClose + '.tfstate" \
-            -backend-config="resource_group_name=' + _GOpen + ' secrets.RESOURCE_GROUP ' + _GClose + '" \
-            -backend-config="subscription_id=' + _GOpen + ' secrets.AZURE_SUBSCRIPTION_ID ' + _GClose + '" \
-            -backend-config="client_id=' + _GOpen + ' secrets.AZURE_CLIENT_ID ' + _GClose + '" \
-            -backend-config="client_secret=' + _GOpen + ' secrets.AZURE_CLIENT_SECRET ' + _GClose + '" \
-            -backend-config="tenant_id=' + _GOpen + ' secrets.AZURE_TENANT_ID ' + _GClose + '"
+            -backend-config="storage_account_name=${{ secrets.TF_STATE_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=${{ secrets.TF_STATE_CONTAINER }}" \
+            -backend-config="key=${{ secrets.CODEX_PROJECT_ID }}.tfstate" \
+            -backend-config="resource_group_name=${{ secrets.RESOURCE_GROUP }}" \
+            -backend-config="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
+            -backend-config="client_id=${{ secrets.AZURE_CLIENT_ID }}" \
+            -backend-config="client_secret=${{ secrets.AZURE_CLIENT_SECRET }}" \
+            -backend-config="tenant_id=${{ secrets.AZURE_TENANT_ID }}"
 
       - name: Terraform Apply
         working-directory: terraform
         run: |
           terraform apply -auto-approve \
-            -var="subscription_id=' + _GOpen + ' secrets.AZURE_SUBSCRIPTION_ID ' + _GClose + '" \
-            -var="sp_tenant_id=' + _GOpen + ' secrets.AZURE_TENANT_ID ' + _GClose + '" \
-            -var="sp_client_id=' + _GOpen + ' secrets.AZURE_CLIENT_ID ' + _GClose + '" \
-            -var="sp_client_secret=' + _GOpen + ' secrets.AZURE_CLIENT_SECRET ' + _GClose + '" \
-            -var="resource_group=' + _GOpen + ' secrets.RESOURCE_GROUP ' + _GClose + '" \
-            -var="location=' + _GOpen + ' secrets.AZURE_LOCATION ' + _GClose + '" \
-            -var="container_app_name=' + _GOpen + ' secrets.CONTAINER_APP_NAME ' + _GClose + '" \
-            -var="container_apps_env_name=' + _GOpen + ' secrets.CONTAINER_APPS_ENV ' + _GClose + '" \
-            -var="acr_name=' + _GOpen + ' secrets.ACR_NAME ' + _GClose + '" \
-            -var="acr_login_server=' + _GOpen + ' secrets.ACR_LOGIN_SERVER ' + _GClose + '"
+            -var="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
+            -var="sp_tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
+            -var="sp_client_id=${{ secrets.AZURE_CLIENT_ID }}" \
+            -var="sp_client_secret=${{ secrets.AZURE_CLIENT_SECRET }}" \
+            -var="resource_group=${{ secrets.RESOURCE_GROUP }}" \
+            -var="location=${{ secrets.AZURE_LOCATION }}" \
+            -var="container_app_name=${{ secrets.CODEX_PROJECT_ID }}" \
+            -var="container_apps_env_name=${{ secrets.CONTAINER_APPS_ENV_NAME }}" \
+            -var="acr_name=${{ secrets.ACR_NAME }}" \
+            -var="acr_login_server=${{ secrets.ACR_LOGIN_SERVER }}"
 
-      - name: Get Terraform Outputs
+      - name: Terraform Output
         id: tf-output
         working-directory: terraform
-        run: echo "url=$(terraform output -raw container_app_url)" >> $GITHUB_OUTPUT
-
-  deploy:
-    name: Build & Deploy from Source
-    needs: terraform
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Login to Azure
-        uses: azure/login@v2
-        with:
-          creds: '{"clientId":"' + _GOpen + ' secrets.AZURE_CLIENT_ID ' + _GClose + '","clientSecret":"' + _GOpen + ' secrets.AZURE_CLIENT_SECRET ' + _GClose + '","subscriptionId":"' + _GOpen + ' secrets.AZURE_SUBSCRIPTION_ID ' + _GClose + '","tenantId":"' + _GOpen + ' secrets.AZURE_TENANT_ID ' + _GClose + '"}'
-
-      - name: Build and Deploy to Container App
-        uses: azure/container-apps-deploy-action@v2
-        with:
-          appSourcePath: ' + _GOpen + ' github.workspace ' + _GClose + '
-          acrName: ' + _GOpen + ' secrets.ACR_NAME ' + _GClose + '
-          acrUsername: ' + _GOpen + ' secrets.ACR_NAME ' + _GClose + '
-          acrPassword: ' + _GOpen + ' secrets.ACR_PASSWORD ' + _GClose + '
-          containerAppName: ' + _GOpen + ' secrets.CONTAINER_APP_NAME ' + _GClose + '
-          resourceGroup: ' + _GOpen + ' secrets.RESOURCE_GROUP ' + _GClose + '
-          runtimeStack: "node:20"
-          targetPort: 3000
+        run: |
+          echo "url=$(terraform output -raw container_app_url)" >> $GITHUB_OUTPUT
