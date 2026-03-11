@@ -1,6 +1,14 @@
 # Data sources for pre-existing infrastructure
 locals {
   container_apps_env_name = trimspace(var.container_apps_env_name)
+
+  raw_container_app_name        = trimspace(var.container_app_name)
+  container_app_name_clean      = regexreplace(lower(local.raw_container_app_name), "[^a-z0-9-]", "-")
+  container_app_name_trimmed    = regexreplace(regexreplace(local.container_app_name_clean, "^-+", ""), "-+$", "")
+  container_app_name_prefixed   = length(regexall("^[a-z]", local.container_app_name_trimmed)) > 0 ? local.container_app_name_trimmed : "app-${local.container_app_name_trimmed}"
+  container_app_name_truncated  = substr(local.container_app_name_prefixed, 0, 60)
+  container_app_name_sanitized  = regexreplace(local.container_app_name_truncated, "-+$", "")
+  container_app_env_name        = local.container_apps_env_name != "" ? local.container_apps_env_name : "${local.container_app_name_sanitized}-env"
 }
 
 data "azurerm_resource_group" "rg" {
@@ -15,7 +23,7 @@ data "azurerm_container_app_environment" "env" {
 
 resource "azurerm_container_app_environment" "env" {
   count               = local.container_apps_env_name == "" ? 1 : 0
-  name                = "${var.container_app_name}-env"
+  name                = local.container_app_env_name
   location            = var.location
   resource_group_name = data.azurerm_resource_group.rg.name
 }
@@ -27,7 +35,7 @@ data "azurerm_container_registry" "acr" {
 
 # Container App
 resource "azurerm_container_app" "app" {
-  name                         = var.container_app_name
+  name                         = local.container_app_name_sanitized
   container_app_environment_id = local.container_apps_env_name != "" ? data.azurerm_container_app_environment.env[0].id : azurerm_container_app_environment.env[0].id
   resource_group_name          = data.azurerm_resource_group.rg.name
   revision_mode                = "Single"
@@ -58,7 +66,7 @@ resource "azurerm_container_app" "app" {
     max_replicas = 1
 
     container {
-      name   = var.container_app_name
+      name   = local.container_app_name_sanitized
       image  = "mcr.microsoft.com/k8se/quickstart:latest"
       cpu    = 0.5
       memory = "1Gi"
@@ -67,20 +75,4 @@ resource "azurerm_container_app" "app" {
         name  = "NODE_ENV"
         value = "production"
       }
-      env {
-        name  = "PORT"
-        value = "3000"
-      }
-      env {
-        name  = "HOSTNAME"
-        value = "0.0.0.0"
-      }
-    }
-  }
-
-  lifecycle {
-    ignore_changes = [
-      template[0].container[0].image
-    ]
-  }
-}
+... [truncated]
