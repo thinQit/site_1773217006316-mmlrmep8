@@ -40,39 +40,34 @@ resource "azurerm_container_app" "app" {
   resource_group_name          = data.azurerm_resource_group.rg.name
   revision_mode                = "Single"
 
-  registry {
-    server               = data.azurerm_container_registry.acr.login_server
-    username             = data.azurerm_container_registry.acr.admin_username
-    password_secret_name = "acr-password"
+  secret {
+    name  = "acr-pwd"
+    value = data.azurerm_container_registry.acr.admin_password
   }
 
-  secret {
-    name  = "acr-password"
-    value = data.azurerm_container_registry.acr.admin_password
+  registry {
+    server               = var.acr_login_server
+    username             = data.azurerm_container_registry.acr.admin_username
+    password_secret_name = "acr-pwd"
+  }
+
+  template {
+    container {
+      name   = "app"
+      image  = "${var.acr_login_server}/${local.container_app_name_sanitized}:latest"
+      cpu    = 0.5
+      memory = "1Gi"
+    }
+
+    scale {
+      min_replicas = 1
+      max_replicas = 1
+    }
   }
 
   ingress {
     external_enabled = true
     target_port      = 3000
-
-    traffic_weight {
-      latest_revision = true
-      percentage      = 100
-    }
+    transport        = "auto"
   }
-
-  template {
-    min_replicas = 0
-    max_replicas = 1
-
-    container {
-      name   = local.container_app_name_sanitized
-      image  = "mcr.microsoft.com/k8se/quickstart:latest"
-      cpu    = 0.5
-      memory = "1Gi"
-
-      env {
-        name  = "NODE_ENV"
-        value = "production"
-      }
-... [truncated]
+}
