@@ -37,6 +37,7 @@ variable "container_app_name" {
 
 variable "container_apps_env_name" {
   type        = string
+  default     = ""
   description = "Name of the pre-existing Container Apps Environment"
 }
 

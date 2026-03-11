@@ -1,10 +1,22 @@
 # Data sources for pre-existing infrastructure
+locals {
+  container_apps_env_name = trimspace(var.container_apps_env_name)
+}
+
 data "azurerm_resource_group" "rg" {
   name = var.resource_group
 }
 
 data "azurerm_container_app_environment" "env" {
-  name                = var.container_apps_env_name
+  count               = local.container_apps_env_name != "" ? 1 : 0
+  name                = local.container_apps_env_name
+  resource_group_name = data.azurerm_resource_group.rg.name
+}
+
+resource "azurerm_container_app_environment" "env" {
+  count               = local.container_apps_env_name == "" ? 1 : 0
+  name                = "${var.container_app_name}-env"
+  location            = var.location
   resource_group_name = data.azurerm_resource_group.rg.name
 }
 
@@ -16,7 +28,7 @@ data "azurerm_container_registry" "acr" {
 # Container App
 resource "azurerm_container_app" "app" {
   name                         = var.container_app_name
-  container_app_environment_id = data.azurerm_container_app_environment.env.id
+  container_app_environment_id = local.container_apps_env_name != "" ? data.azurerm_container_app_environment.env[0].id : azurerm_container_app_environment.env[0].id
   resource_group_name          = data.azurerm_resource_group.rg.name
   revision_mode                = "Single"
 
